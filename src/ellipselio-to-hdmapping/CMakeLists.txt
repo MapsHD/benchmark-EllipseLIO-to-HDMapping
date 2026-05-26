@@ -40,7 +40,16 @@ target_link_libraries(listener
   ${PCL_LIBRARIES}
 )
 
-install(TARGETS listener
+add_executable(livox_format_bridge
+  src/livox_format_bridge.cpp
+)
+
+ament_target_dependencies(livox_format_bridge
+  rclcpp
+  sensor_msgs
+)
+
+install(TARGETS listener livox_format_bridge
   DESTINATION lib/${PROJECT_NAME}
 )
 

@@ -307,7 +307,8 @@ int main(int argc, char **argv)
 
     std::cout << "remaining points: " << chunk.size() << std::endl;
 
-    if (chunk.size() > 1000000)
+    // Always flush the residual chunk so small recordings still produce output.
+    if (!chunk.empty())
     {
         chunks_pc.push_back(chunk);
     }
@@ -341,8 +342,14 @@ int main(int argc, char **argv)
         }
         if (!assigned && i < 5) {
             std::cout << "DEBUG: trajectory[" << i << "] ts=" << trajectory[i].timestamp_ns
-                      << " not matched. chunk[0] range=[" << chunks_pc[0][0].timestamp
-                      << ".." << chunks_pc[0].back().timestamp << "]" << std::endl;
+                      << " not matched.";
+            if (!chunks_pc.empty() && !chunks_pc[0].empty()) {
+                std::cout << " chunk[0] range=[" << chunks_pc[0][0].timestamp
+                          << ".." << chunks_pc[0].back().timestamp << "]";
+            } else {
+                std::cout << " (no point-cloud chunks available)";
+            }
+            std::cout << std::endl;
         }
     }
 
