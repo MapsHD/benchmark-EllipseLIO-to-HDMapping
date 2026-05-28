@@ -1,3 +1,11 @@
+## Hint
+
+Please change branch to [Bunker-DVI-Dataset-reg-1](https://github.com/MapsHD/benchmark-EllipseLIO-to-HDMapping/tree/Bunker-DVI-Dataset-reg-1) for quick experiment.
+
+## Example Dataset:
+
+Download the dataset from [Bunker DVI Dataset](https://charleshamesse.github.io/bunker-dvi-dataset/)
+
 # benchmark-EllipseLIO-to-HDMapping
 
 Runs the [EllipseLIO](https://github.com/v4rl-ucy/ellipselio) LiDAR-Inertial
