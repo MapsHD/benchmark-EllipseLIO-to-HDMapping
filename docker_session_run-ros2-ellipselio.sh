@@ -18,12 +18,14 @@ HDMAPPING_OUT_NAME="output_hdmapping"
 ODOM_TOPIC=${ODOM_TOPIC:-/ellipselio_odom}
 CLOUD_TOPIC=${CLOUD_TOPIC:-/cloud_scan}
 
-# This wrapper is the Bunker-DVI-Dataset-reg-1 branch — the dataset uses a
-# Livox Mid-360 (ROS 1 livox_ros_driver layout). The matching config lives in
-# config/livox_reg.yaml and is mounted read-only into the container. Override
-# with CONFIG_FILE=<some_upstream_yaml> to fall back to one of the configs that
-# ship inside the ellipselio package (qt64_spires.yaml, vlp16_*, os*_*).
-CONFIG_FILE=${CONFIG_FILE:-livox_reg.yaml}
+# Default dataset is now Oxford Spires (Hesai Pandar QT64 + Alphasense IMU).
+# qt64_spires.yaml ships inside the upstream ellipselio package with the
+# correct /hesai/pandar + /alphasense_driver_ros/imu topics already set, so no
+# wrapper config mount is needed for it. Override with
+# CONFIG_FILE=livox_reg.yaml to go back to the Bunker-DVI-Dataset-reg-1 Livox
+# Mid-360 config (config/livox_reg.yaml in this repo), or any other upstream
+# config (vlp16_*, os*_*).
+CONFIG_FILE=${CONFIG_FILE:-qt64_spires.yaml}
 
 # Wrapper configs override the upstream ellipselio package share directory when
 # the requested file exists in this repo's config/ directory.
@@ -52,11 +54,11 @@ usage() {
   echo
   echo "Environment variables:"
   echo "  CONFIG_FILE   - ellipselio config file name"
-  echo "                  default (this branch): livox_reg.yaml (from config/)"
-  echo "                  upstream-shipped: os64_ncd.yaml, os128_ncd.yaml,"
-  echo "                                    os64_geode.yaml, qt64_spires.yaml,"
-  echo "                                    vlp16_bot.yaml, vlp16_geode.yaml,"
-  echo "                                    vlp16_graco.yaml"
+  echo "                  default (this branch): qt64_spires.yaml (upstream-shipped)"
+  echo "                  wrapper config (this repo's config/): livox_reg.yaml"
+  echo "                  other upstream-shipped: os64_ncd.yaml, os128_ncd.yaml,"
+  echo "                                    os64_geode.yaml, vlp16_bot.yaml,"
+  echo "                                    vlp16_geode.yaml, vlp16_graco.yaml"
   echo "  ODOM_TOPIC    - recorded odometry topic (default: /ellipselio_odom)"
   echo "  CLOUD_TOPIC   - recorded cloud topic    (default: /cloud_scan)"
   exit 1
