@@ -24,9 +24,15 @@ cd ~/hdmapping-benchmark/data
 ~/hdmapping-benchmark/benchmark-EllipseLIO-to-HDMapping/docker_session_run-ros2-ellipselio.sh reg-1.bag-pc.bag .
 ```
 
+While the bag plays you can watch EllipseLIO build the map live in RViz:
+
+![EllipseLIO running in RViz](images/RVIZ.png)
+
 ## Step 4 (Open and visualize data)
 Expected data should appear in `~/hdmapping-benchmark/data/output_hdmapping-EllipseLIO`.
 Use tool [multi_view_tls_registration_step_2](https://github.com/MapsHD/HDMapping) to open `session.json` from `~/hdmapping-benchmark/data/output_hdmapping-EllipseLIO`.
+
+![EllipseLIO session opened in HDMapping multi_view_tls_registration_step_2](images/STEP_2.png)
 
 You should see the following data in folder `~/hdmapping-benchmark/data/output_hdmapping-EllipseLIO`:
 

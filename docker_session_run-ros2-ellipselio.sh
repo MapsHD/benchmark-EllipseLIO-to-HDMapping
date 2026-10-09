@@ -19,25 +19,51 @@ ODOM_TOPIC=${ODOM_TOPIC:-/ellipselio_odom}
 CLOUD_TOPIC=${CLOUD_TOPIC:-/cloud_scan}
 
 # This wrapper is the Bunker-DVI-Dataset-reg-1 branch — the dataset uses a
-# Livox Mid-360 (ROS 1 livox_ros_driver layout). The matching config lives in
-# config/livox_reg.yaml and is mounted read-only into the container. Override
-# with CONFIG_FILE=<some_upstream_yaml> to fall back to one of the configs that
-# ship inside the ellipselio package (qt64_spires.yaml, vlp16_*, os*_*).
-CONFIG_FILE=${CONFIG_FILE:-livox_reg.yaml}
+# Livox Mid-360 (ROS 1 livox_ros_driver layout). The default config is
+# mid360_hdmapping.yaml, the Mid-360 config the EllipseLIO authors prepared for
+# HDMapping; it ships inside the ellipselio package (src/ellipselio/config/).
+# Any other config of the package can be selected with CONFIG_FILE
+# (mid360_grandtour.yaml, os64_ncd.yaml, vlp16_*, ...). A file of the same name
+# in this repo's config/ directory (e.g. livox_reg.yaml, the earlier benchmark
+# config) overrides the package one and is mounted read-only into the container.
+CONFIG_FILE=${CONFIG_FILE:-mid360_hdmapping.yaml}
 
 # Wrapper configs override the upstream ellipselio package share directory when
 # the requested file exists in this repo's config/ directory.
 if [[ -f "${WRAPPER_CONFIG_HOST}/${CONFIG_FILE}" ]]; then
   USE_WRAPPER_CONFIG=1
+  CONFIG_HOST_PATH="${WRAPPER_CONFIG_HOST}/${CONFIG_FILE}"
 else
   USE_WRAPPER_CONFIG=0
+  # Same file the image installs into the ellipselio package share directory.
+  CONFIG_HOST_PATH="${SCRIPT_DIR}/src/ellipselio/config/${CONFIG_FILE}"
 fi
 
-if [[ "${USE_WRAPPER_CONFIG}" == "1" ]] && \
-  grep -qE 'pointcloud_native' "${WRAPPER_CONFIG_HOST}/${CONFIG_FILE}"; then
-  RUN_LIVOX_BRIDGE=1
+# Value of <key> in the `lidar:` section of an ellipselio config.
+lidar_cfg_value() {
+  awk -v key="$1" '
+    /^[[:space:]]*[A-Za-z_*\/]+:[[:space:]]*$/ { section = $1; sub(":", "", section); next }
+    section == "lidar" && $1 == key ":" { v = $2; gsub(/"/, "", v); print v; exit }
+  ' "$2"
+}
+
+# The bag carries the Mid-360 cloud as /livox/pointcloud with a float `time`
+# offset; EllipseLIO's Livox point type needs an absolute double `timestamp`.
+# For a Livox config (lidar.type 1), livox_format_bridge converts the cloud and
+# publishes it on the config's own lidar.topic (/livox/lidar_pc2 for
+# mid360_hdmapping.yaml, where the authors use their livox_to_pointcloud2 node).
+RUN_LIVOX_BRIDGE=0
+BRIDGE_OUTPUT_TOPIC=""
+if [[ -f "$CONFIG_HOST_PATH" ]]; then
+  CFG_LIDAR_TYPE=$(lidar_cfg_value type "$CONFIG_HOST_PATH")
+  CFG_LIDAR_TOPIC=$(lidar_cfg_value topic "$CONFIG_HOST_PATH")
+  if [[ "$CFG_LIDAR_TYPE" == "1" && -n "$CFG_LIDAR_TOPIC" && "$CFG_LIDAR_TOPIC" != "/livox/pointcloud" ]]; then
+    RUN_LIVOX_BRIDGE=1
+    BRIDGE_OUTPUT_TOPIC="$CFG_LIDAR_TOPIC"
+  fi
 else
-  RUN_LIVOX_BRIDGE=0
+  echo "Warning: config ${CONFIG_FILE} not found in ${WRAPPER_CONFIG_HOST} or src/ellipselio/config;"
+  echo "         is the src/ellipselio submodule initialized?"
 fi
 
 usage() {
@@ -52,11 +78,13 @@ usage() {
   echo
   echo "Environment variables:"
   echo "  CONFIG_FILE   - ellipselio config file name"
-  echo "                  default (this branch): livox_reg.yaml (from config/)"
-  echo "                  upstream-shipped: os64_ncd.yaml, os128_ncd.yaml,"
-  echo "                                    os64_geode.yaml, qt64_spires.yaml,"
+  echo "                  default (this branch): mid360_hdmapping.yaml (ellipselio"
+  echo "                  package, by the EllipseLIO authors); livox_reg.yaml (config/)"
+  echo "                  other package configs: mid360_grandtour.yaml, avia_geode.yaml,"
+  echo "                                    os64_ncd.yaml, os128_ncd.yaml, os64_geode.yaml,"
+  echo "                                    qt64_spires.yaml, xt32_grandtour.yaml,"
   echo "                                    vlp16_bot.yaml, vlp16_geode.yaml,"
-  echo "                                    vlp16_graco.yaml"
+  echo "                                    vlp16_graco.yaml, vlp16_grandtour.yaml"
   echo "  ODOM_TOPIC    - recorded odometry topic (default: /ellipselio_odom)"
   echo "  CLOUD_TOPIC   - recorded cloud topic    (default: /cloud_scan)"
   exit 1
@@ -110,7 +138,7 @@ echo "Input type        : $([[ $INPUT_IS_DIR == 1 ]] && echo 'ROS 2 bag director
 echo "Output dir        : $BAG_OUTPUT_HOST"
 echo "Config file       : $CONFIG_FILE"
 echo "Wrapper config    : $([[ $USE_WRAPPER_CONFIG == 1 ]] && echo "${WRAPPER_CONFIG_HOST}/${CONFIG_FILE} -> ${WRAPPER_CONFIG_CONTAINER}/${CONFIG_FILE}" || echo '(using upstream package config)')"
-echo "Livox bridge node : $([[ $RUN_LIVOX_BRIDGE == 1 ]] && echo 'yes' || echo 'no')"
+echo "Livox bridge node : $([[ $RUN_LIVOX_BRIDGE == 1 ]] && echo "yes (/livox/pointcloud -> $BRIDGE_OUTPUT_TOPIC)" || echo 'no')"
 echo "Odom topic        : $ODOM_TOPIC"
 echo "Cloud topic       : $CLOUD_TOPIC"
 
@@ -238,8 +266,8 @@ echo "[play] done"
       tmux send-keys -t '"$TMUX_SESSION"' '\''sleep 2
 source /opt/ros/humble/setup.bash
 source /ros2_ws/install/setup.bash
-echo "[bridge] livox_format_bridge: /livox/pointcloud (float time) -> /livox/pointcloud_native (double timestamp)"
-stdbuf -oL -eL ros2 run ellipselio-to-hdmapping livox_format_bridge --ros-args -p use_sim_time:=true 2>&1 | tee "$LOG_DIR"/bridge.log
+echo "[bridge] livox_format_bridge: /livox/pointcloud (float time) -> '"$BRIDGE_OUTPUT_TOPIC"' (double timestamp)"
+stdbuf -oL -eL ros2 run ellipselio-to-hdmapping livox_format_bridge --ros-args -p use_sim_time:=true -p output_topic:='"$BRIDGE_OUTPUT_TOPIC"' 2>&1 | tee "$LOG_DIR"/bridge.log
 '\'' C-m
     fi
 
@@ -257,13 +285,13 @@ echo ""
 if [[ "'"$RUN_LIVOX_BRIDGE"'" == "1" ]]; then
   echo "--- Bridge input rate /livox/pointcloud ---"
   timeout 5 ros2 topic hz /livox/pointcloud 2>&1 | tail -3 &
-  echo "--- Bridge output rate /livox/pointcloud_native (must be > 0!) ---"
-  timeout 5 ros2 topic hz /livox/pointcloud_native 2>&1 | tail -3 &
+  echo "--- Bridge output rate '"$BRIDGE_OUTPUT_TOPIC"' (must be > 0!) ---"
+  timeout 5 ros2 topic hz '"$BRIDGE_OUTPUT_TOPIC"' 2>&1 | tail -3 &
   wait
   echo ""
 fi
 echo "--- Algorithm input topics ---"
-for t in /livox/imu /livox/pointcloud_native; do
+for t in /livox/imu '"$BRIDGE_OUTPUT_TOPIC"'; do
   echo "  hz $t:"
   timeout 4 ros2 topic hz $t 2>&1 | tail -2
 done
