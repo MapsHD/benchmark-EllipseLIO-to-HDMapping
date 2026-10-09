@@ -56,8 +56,9 @@ Or with no arguments to use a GUI file selector (requires `zenity`):
 ./docker_session_run-ros2-ellipselio.sh
 ```
 
-By default the script uses the `qt64_spires.yaml` EllipseLIO config. Pick a
-different one with the `CONFIG_FILE` environment variable, e.g.:
+By default the script uses the `mid360_hdmapping.yaml` EllipseLIO config, the
+Livox Mid-360 config the EllipseLIO authors prepared for HDMapping (Bunker DVI
+dataset). Pick a different one with the `CONFIG_FILE` environment variable, e.g.:
 
 ```bash
 CONFIG_FILE=os64_ncd.yaml ./docker_session_run-ros2-ellipselio.sh /path/to/input.bag /path/to/output/dir
@@ -67,18 +68,27 @@ Available configs (from the `ellipselio/config/` directory):
 
 | Config | LiDAR | Typical dataset |
 |--------|-------|-----------------|
+| `mid360_hdmapping.yaml` | Livox Mid-360     | Bunker DVI (HDMapping) — **default** |
+| `mid360_grandtour.yaml` | Livox Mid-360     | GrandTour        |
+| `avia_geode.yaml`   | Livox Avia           | GEODE Gamma      |
 | `qt64_spires.yaml`  | Hesai Pandar QT64    | Oxford Spires    |
+| `xt32_grandtour.yaml` | Hesai XT-32        | GrandTour        |
 | `os64_ncd.yaml`     | Ouster OS-64         | Newer College    |
 | `os128_ncd.yaml`    | Ouster OS-128        | Newer College    |
-| `os64_geode.yaml`   | Ouster OS-64         | GEODE            |
+| `os64_geode.yaml`   | Ouster OS-64         | GEODE Beta       |
 | `vlp16_bot.yaml`    | Velodyne VLP-16      | BotanicGarden    |
-| `vlp16_geode.yaml`  | Velodyne VLP-16      | GEODE            |
+| `vlp16_geode.yaml`  | Velodyne VLP-16      | GEODE Alpha      |
 | `vlp16_graco.yaml`  | Velodyne VLP-16      | GraCo            |
+| `vlp16_grandtour.yaml` | Velodyne VLP-16   | GrandTour        |
+
+This repository's `config/` directory adds `livox_reg.yaml` (the earlier
+benchmark config for the Bunker DVI Mid-360). A file in `config/` is mounted
+into the container and takes precedence over a package config of the same name.
 
 **What happens:**
 
 The script opens a Docker container with a tmux session containing five panes
-and a control window:
+(six with a Livox config) and a control window:
 
 | Pane | Role |
 |------|------|
@@ -87,6 +97,7 @@ and a control window:
 | 2 | `ros2 bag record` — captures the two published topics |
 | 3 | `ros2 bag play` — plays your input bag with simulated clock |
 | 4 | diagnostics — shows active topics and publishing rates |
+| 5 | Livox configs only (`lidar.type: 1`): `livox_format_bridge` — converts the bag's `/livox/pointcloud` (livox_ros_driver layout, per-point float `time` offset) into EllipseLIO's Livox point format (absolute double `timestamp`) and publishes it on the config's `lidar.topic` |
 | control | auto-shutdown — waits for playback to finish, then stops all nodes |
 
 After playback completes, the control window automatically stops the recorder,
@@ -125,14 +136,15 @@ lidar:
   rate: 10
   topic: "/your/lidar/topic"
   t_imu_lidar: [x, y, z]
-  r_imu_lidar: [qx, qy, qz, qw]
+  r_imu_lidar: [qx, qy, qz, qw]   # or a 3x3 rotation matrix (9 values, row-major)
 imu:
   rate: 200
   topic: "/your/imu/topic"
 ```
 
 If the topic names in your bag differ from the ones in the chosen config,
-either pick another config or mount a customised config into the container.
+either pick another config or put a customised config into this repository's
+`config/` directory and select it with `CONFIG_FILE=<file name>`.
 
 The recorded topics (used by the converter) are also tunable via env vars:
 
