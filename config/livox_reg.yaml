@@ -1,0 +1,32 @@
+/**:
+    ros__parameters:
+
+        mapping:
+            map_resolution: 0.1
+            pub_map_n_secs: 10
+
+        lidar:
+            type: 1 # LIVOX = 1, VELODYNE = 2, OUSTER = 3, HESAI = 4
+            rate: 10
+            # Mid-360 is a non-repetitive scanner, not a multi-line one.
+            # scan_lines drives the per-bin octree voxel resolution in
+            # LidarProcess. For this dataset 128 keeps the geometry dense
+            # enough for stable tracking.
+            scan_lines: 128
+            vertical_fov: 59.0
+            min_range: 0.5
+            max_range: 40.0
+            # Output of livox_format_bridge.
+            topic: "/livox/pointcloud_native"
+            # Livox Mid-360 built-in IMU extrinsics.
+            t_imu_lidar: [-0.011, -0.02329, 0.04412]
+            r_imu_lidar: [0.0, 0.0, 0.0, 1.0]
+
+        imu:
+            rate: 200
+            # Bosch BMI088 (Mid-360 built-in) noise/bias characteristics.
+            acc_noise: 0.0019
+            gyr_noise: 0.00014
+            acc_bias: 0.0001
+            gyr_bias: 0.00001
+            topic: "/livox/imu"
